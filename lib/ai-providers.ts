@@ -32,6 +32,7 @@ export const SINGLE_SYSTEM_PROVIDERS = new Set<ProviderName>([
     "kimi",
     "qiniu",
     "novita",
+    "mimo",
 ])
 
 /**
@@ -116,6 +117,7 @@ const ALLOWED_CLIENT_PROVIDERS: ProviderName[] = [
     "kimi",
     "minimax",
     "novita",
+    "mimo",
 ]
 
 // Bedrock provider options for Anthropic beta features
@@ -540,7 +542,8 @@ function buildProviderOptions(
         case "qwen":
         case "kimi":
         case "qiniu":
-        case "novita": {
+        case "novita":
+        case "mimo": {
             // These providers don't have reasoning configs in AI SDK yet
             // Gateway passes through to underlying providers which handle their own configs
             break
@@ -577,6 +580,7 @@ export const PROVIDER_ENV_VARS: Record<ProviderName, string | null> = {
     kimi: "KIMI_API_KEY",
     minimax: "MINIMAX_API_KEY",
     novita: "NOVITA_API_KEY",
+    mimo: "MIMO_API_KEY",
 }
 
 /**
@@ -1346,6 +1350,23 @@ export function getAIModel(overrides?: ClientOverrides): ModelConfig {
             break
         }
 
+        case "mimo": {
+            const apiKey = resolveApiKey(overrides, "MIMO_API_KEY")
+            const baseURL = resolveBaseURL(
+                overrides?.apiKey,
+                overrides?.baseUrl,
+                resolveBaseUrlEnv(overrides, "MIMO_BASE_URL"),
+                PROVIDER_INFO.mimo?.defaultBaseUrl,
+            )
+            // Use createDeepSeek to properly handle reasoning_content for MiMo
+            // thinking models (e.g., mimo-v2.5-pro). MiMo's API requires
+            // reasoning_content to be passed back during multi-turn tool calls
+            // (returns 400 otherwise), same convention as DeepSeek and Kimi.
+            const mimoProvider = createDeepSeek({ apiKey, baseURL })
+            model = mimoProvider(modelId)
+            break
+        }
+
         case "glm":
         case "qwen":
         case "qiniu":
@@ -1393,7 +1414,7 @@ export function getAIModel(overrides?: ClientOverrides): ModelConfig {
 
         default:
             throw new Error(
-                `Unknown AI provider: ${provider}. Supported providers: bedrock, openai, anthropic, google, azure, ollama, openrouter, aihubmix, deepseek, siliconflow, sglang, gateway, edgeone, doubao, modelscope, glm, qwen, qiniu, kimi, minimax, novita`,
+                `Unknown AI provider: ${provider}. Supported providers: bedrock, openai, anthropic, google, azure, ollama, openrouter, aihubmix, deepseek, siliconflow, sglang, gateway, edgeone, doubao, modelscope, glm, qwen, qiniu, kimi, minimax, novita, mimo`,
             )
     }
 
